@@ -7,9 +7,10 @@ Alguns sites (JOTA PRO, Automotive News Europe) têm conteúdo com paywall. A
 skill usa WebSearch (manchetes/snippets) quando o WebFetch não conseguir
 acessar o conteúdo completo.
 
-**Janela de frescor:** só entram no digest notícias publicadas entre 24h e
-72h antes da curadoria. Descartar qualquer resultado de busca mais antigo
-que isso, mesmo que continue aparecendo no topo da pesquisa.
+**Janela de frescor (híbrida):** busca primeiro só notícias do dia da
+curadoria; se não fechar 10 itens relevantes, amplia pra últimos 7 dias
+corridos, priorizando sempre o mais recente. Descartar qualquer resultado
+mais antigo que 7 dias, mesmo que continue aparecendo no topo da pesquisa.
 
 Evitar blog de empresa/SaaS disfarçado de notícia (ex.: AutoForce, Intelia,
 Motorleads, ilia.digital, Chaves na Mão) como fonte fixa — servem só como

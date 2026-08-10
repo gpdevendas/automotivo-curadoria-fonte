@@ -109,18 +109,40 @@ const digests = arquivos.map((arquivo) => {
   const linhas = fs.readFileSync(path.join(curadoriaDir, arquivo), 'utf8').split(/\r?\n/);
   const categorias = {};
   let catAtual = null;
+  let itemAtual = null;
+
+  function fecharItem() {
+    if (itemAtual && catAtual) categorias[catAtual].push(itemAtual.trim());
+    itemAtual = null;
+  }
+
   for (const linha of linhas) {
     const matchCategoria = linha.match(/^##\s+(.+)$/);
     if (matchCategoria) {
+      fecharItem();
       catAtual = matchCategoria[1].trim();
       categorias[catAtual] = [];
       continue;
     }
-    const matchItem = linha.match(/^-\s+(.+)$/);
-    if (matchItem && catAtual) {
-      categorias[catAtual].push(matchItem[1].trim());
+    const matchItemAntigo = linha.match(/^-\s+(.+)$/);
+    if (matchItemAntigo && catAtual) {
+      fecharItem();
+      categorias[catAtual].push(matchItemAntigo[1].trim());
+      continue;
+    }
+    if (/^\*\*/.test(linha) && catAtual) {
+      fecharItem();
+      itemAtual = linha.trim();
+      continue;
+    }
+    const linhaLimpa = linha.trim();
+    if (itemAtual && linhaLimpa !== '' && linhaLimpa !== '---') {
+      itemAtual += ' ' + linhaLimpa;
+    } else if (itemAtual && (linhaLimpa === '' || linhaLimpa === '---')) {
+      fecharItem();
     }
   }
+  fecharItem();
   return { data: arquivo.replace(/\.md$/, ''), categorias };
 });
 
@@ -302,6 +324,38 @@ const html = `<!DOCTYPE html>
       return s.length > 150 ? s.slice(0, 150) + '…' : s;
     }
 
+    // --- "Me explique": monta a pergunta e manda pro chat IA (iframe) explicar a notícia ---
+    function montarPromptExplicar(item) {
+      var titulo = extrairTitulo(item.texto);
+      var fonte = extrairFonte(item.texto);
+      var resumo = extrairResumo(item.texto);
+      var cabecalho = 'Me explica essa notícia do radar automotivo: "' + titulo + '" (' +
+        (fonte ? fonte + ', ' : '') + formatarData(item.data) + ').';
+      var partes = [cabecalho];
+      if (resumo) partes.push(resumo);
+      partes.push('Quero saber rápido: por que isso importa pro nosso time (Grand Prix de Vendas, Edney Ulisses ou Veloce), o contexto pra quem não acompanhou o assunto, e se tem algum ângulo de conteúdo ou venda nisso.');
+      return partes.join(' ');
+    }
+
+    function montarPromptExplicarDestaque(destaque) {
+      var limpo = destaque.texto.replace(/\s*\[[^\]]+\]\([^)]+\)/g, '').trim();
+      return 'Me explica esse destaque do radar automotivo (' + formatarData(destaque.data) + '): "' + limpo +
+        '" Quero saber rápido: por que isso importa pro nosso time (Grand Prix de Vendas, Edney Ulisses ou Veloce), o contexto pra quem não acompanhou o assunto, e se tem algum ângulo de conteúdo ou venda nisso.';
+    }
+
+    function criarBotaoExplicar(prompt, destaqueVisual) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = destaqueVisual
+        ? 'inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1.5 bg-white/15 text-white hover:bg-white/25 transition-colors whitespace-nowrap'
+        : 'inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1.5 bg-stone-800 text-white hover:bg-stone-700 transition-colors whitespace-nowrap';
+      btn.textContent = '💬 Me explique';
+      btn.addEventListener('click', function () {
+        if (window.abrirChatRadarComPrompt) window.abrirChatRadarComPrompt(prompt);
+      });
+      return btn;
+    }
+
     // --- Fontes que são blog/portal automotivo, não jornalismo tradicional ---
     var FONTES_BLOG = ['autopapo', 'carplace', 'motor1', 'quatro rodas'];
 
@@ -414,6 +468,11 @@ const html = `<!DOCTYPE html>
       dataSpan.textContent = formatarData(item.data);
       rodape.appendChild(dataSpan);
 
+      var acoes = document.createElement('div');
+      acoes.className = 'flex items-center gap-2 flex-wrap justify-end';
+
+      acoes.appendChild(criarBotaoExplicar(montarPromptExplicar(item), destaqueVisual));
+
       var url = extrairLink(item.texto);
       var fonte = extrairFonte(item.texto);
       if (url) {
@@ -425,13 +484,14 @@ const html = `<!DOCTYPE html>
           ? 'inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1.5 bg-white text-red-700 hover:bg-stone-100 transition-colors whitespace-nowrap'
           : 'inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1.5 bg-red-600 text-white hover:bg-red-700 transition-colors whitespace-nowrap';
         link.textContent = 'Ler em ' + (fonte || 'fonte') + ' ↗';
-        rodape.appendChild(link);
+        acoes.appendChild(link);
       } else if (fonte) {
         var fonteSpan = document.createElement('span');
         fonteSpan.className = 'text-xs ' + (destaqueVisual ? 'text-white/60' : 'text-stone-600');
         fonteSpan.textContent = fonte;
-        rodape.appendChild(fonteSpan);
+        acoes.appendChild(fonteSpan);
       }
+      rodape.appendChild(acoes);
       card.appendChild(rodape);
       return card;
     }
@@ -446,14 +506,35 @@ const html = `<!DOCTYPE html>
       card.appendChild(eyebrow);
 
       var texto = document.createElement('p');
-      texto.className = 'font-serif text-black leading-relaxed text-base md:text-lg';
-      texto.textContent = destaque.texto;
+      texto.className = 'font-serif text-black leading-relaxed text-base md:text-lg mb-4';
+      texto.textContent = destaque.texto.replace(/\s*\[[^\]]+\]\([^)]+\)/g, '').trim();
       card.appendChild(texto);
 
-      var dataSpan = document.createElement('p');
-      dataSpan.className = 'text-xs text-stone-600 mt-4';
+      var rodape = document.createElement('div');
+      rodape.className = 'flex items-center justify-between gap-2 pt-4 border-t border-stone-200';
+
+      var dataSpan = document.createElement('span');
+      dataSpan.className = 'text-xs text-stone-600';
       dataSpan.textContent = formatarData(destaque.data);
-      card.appendChild(dataSpan);
+      rodape.appendChild(dataSpan);
+
+      var acoes = document.createElement('div');
+      acoes.className = 'flex items-center gap-2 flex-wrap justify-end';
+
+      acoes.appendChild(criarBotaoExplicar(montarPromptExplicarDestaque(destaque), false));
+
+      var url = extrairLink(destaque.texto);
+      if (url) {
+        var link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.className = 'inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1.5 bg-red-600 text-white hover:bg-red-700 transition-colors whitespace-nowrap';
+        link.textContent = 'Ler fonte ↗';
+        acoes.appendChild(link);
+      }
+      rodape.appendChild(acoes);
+      card.appendChild(rodape);
       return card;
     }
 
@@ -577,24 +658,50 @@ const html = `<!DOCTYPE html>
     })();
 
     (function () {
+      var RADAR_CHAT_ORIGEM = 'https://radar-chat.gabriel-tonelini.workers.dev';
       var btnToggleChat = document.getElementById('btn-toggle-chat');
       var wrapChatIframe = document.getElementById('wrap-chat-iframe');
       if (!btnToggleChat || !wrapChatIframe) return;
-      var carregado = false;
+      var iframeEl = null;
+
+      function criarIframeSeNecessario(aoCarregar) {
+        if (iframeEl) {
+          if (iframeEl.dataset.carregado === '1') { if (aoCarregar) aoCarregar(iframeEl); }
+          else if (aoCarregar) iframeEl.addEventListener('load', function () {
+            iframeEl.dataset.carregado = '1';
+            aoCarregar(iframeEl);
+          }, { once: true });
+          return;
+        }
+        iframeEl = document.createElement('iframe');
+        iframeEl.src = RADAR_CHAT_ORIGEM;
+        iframeEl.style.width = '100%';
+        iframeEl.style.height = '100%';
+        iframeEl.style.border = '0';
+        iframeEl.addEventListener('load', function () {
+          iframeEl.dataset.carregado = '1';
+          if (aoCarregar) aoCarregar(iframeEl);
+        }, { once: true });
+        wrapChatIframe.appendChild(iframeEl);
+      }
+
       btnToggleChat.addEventListener('click', function () {
         var abrir = wrapChatIframe.classList.contains('oculta');
         wrapChatIframe.classList.toggle('oculta');
         btnToggleChat.textContent = abrir ? '💬 Fechar chat IA do time' : '💬 Abrir chat IA do time';
-        if (abrir && !carregado) {
-          var iframe = document.createElement('iframe');
-          iframe.src = 'https://radar-chat.gabriel-tonelini.workers.dev';
-          iframe.style.width = '100%';
-          iframe.style.height = '100%';
-          iframe.style.border = '0';
-          wrapChatIframe.appendChild(iframe);
-          carregado = true;
-        }
+        if (abrir) criarIframeSeNecessario();
       });
+
+      window.abrirChatRadarComPrompt = function (prompt) {
+        if (wrapChatIframe.classList.contains('oculta')) {
+          wrapChatIframe.classList.remove('oculta');
+          btnToggleChat.textContent = '💬 Fechar chat IA do time';
+        }
+        wrapChatIframe.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        criarIframeSeNecessario(function (iframe) {
+          iframe.contentWindow.postMessage({ tipo: 'radar-explicar', prompt: prompt }, RADAR_CHAT_ORIGEM);
+        });
+      };
     })();
   </script>
 </body>
