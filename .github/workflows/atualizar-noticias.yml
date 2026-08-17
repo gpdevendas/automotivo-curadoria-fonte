@@ -78,7 +78,7 @@ jobs:
         working-directory: automotivo-curadoria-fonte
         env:
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
-          FIRECRAWL_DAILY_CREDIT_LIMIT: ${{ vars.FIRECRAWL_DAILY_CREDIT_LIMIT || '36' }}
+          FIRECRAWL_DAILY_CREDIT_LIMIT: ${{ vars.FIRECRAWL_DAILY_CREDIT_LIMIT || '40' }}
         run: node scripts/gerar-curadoria-cloud.js
 
       - name: Validar digest

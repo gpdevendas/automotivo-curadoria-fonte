@@ -38,7 +38,7 @@ Antes da primeira execução, abra o repositório
 
 Não é necessária uma chave da OpenAI nem de outro modelo. O próprio modo de
 extração JSON do Firecrawl resume e classifica cada matéria. A variável
-`FIRECRAWL_DAILY_CREDIT_LIMIT` controla o teto diário da coleta e usa `36` por
+`FIRECRAWL_DAILY_CREDIT_LIMIT` controla o teto diário da coleta e usa `40` por
 padrão.
 
 Depois dos secrets, abra **Actions > Atualizar notícias do portal > Run
@@ -49,8 +49,8 @@ a tarefa local pode ser desativada para evitar duas publicações no mesmo dia:
 Disable-ScheduledTask -TaskName PortalNoticias-AtualizacaoDiaria
 ```
 
-O script `scripts/gerar-curadoria-cloud.js` faz seis pesquisas e extrai um
-resultado estruturado de cada uma. A estimativa é de cerca de 30 créditos por
+O script `scripts/gerar-curadoria-cloud.js` faz cinco pesquisas e extrai um
+resultado estruturado de cada uma. A estimativa é de cerca de 35 créditos por
 dia útil, dentro dos 1.000 créditos mensais do plano gratuito do Firecrawl. Se
 a cota acabar, a execução falha sem contratar uso pago. O resultado passa por
 `scripts/validar-digest.js` antes da publicação.

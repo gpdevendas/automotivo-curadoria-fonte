@@ -8,14 +8,14 @@ const curadoriaDir = path.join(root, 'curadoria');
 const dryRun = process.argv.includes('--dry-run');
 const smokeTest = process.argv.includes('--smoke-test');
 const firecrawlUrl = 'https://api.firecrawl.dev/v2/search';
+const firecrawlScrapeUrl = 'https://api.firecrawl.dev/v2/scrape';
 
 const pesquisas = [
   'Fenabrave Anfavea FIPE emplacamentos impostos Mover mercado carros Brasil',
-  'montadora fábrica investimento produção veículos Brasil',
-  'lançamento carro novo Brasil AutoPapo Quatro Rodas Motor1',
+  'montadora fábrica investimento produção concessionária varejo veículos Brasil',
+  'lançamento carro novo elétrico híbrido Brasil AutoPapo Quatro Rodas Motor1',
   'new car launch electric hybrid global automotive industry',
   'campanha publicidade montadora concessionária locadora Propmark',
-  'concessionária varejo automotivo AutoData Automotive Business',
 ];
 
 const categorias = [
@@ -116,7 +116,7 @@ function resumirResultado(result) {
 }
 
 async function buscar(apiKey, query) {
-  const response = await fetch(firecrawlUrl, {
+  const searchResponse = await fetch(firecrawlUrl, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -125,23 +125,41 @@ async function buscar(apiKey, query) {
       tbs: 'sbd:1,qdr:w',
       location: 'Sao Paulo,Sao Paulo,Brazil',
       country: 'BR',
-      timeout: 120000,
       ignoreInvalidURLs: true,
-      scrapeOptions: {
-        formats: [{ type: 'json', schema: esquemaExtracao, prompt: promptExtracao }],
-        onlyMainContent: true,
-        maxAge: 21600000,
-        removeBase64Images: true,
-        blockAds: true,
-        location: { country: 'BR', languages: ['pt-BR', 'en-US'] },
-      },
     }),
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.success) {
-    throw new Error(`Firecrawl falhou (${response.status}): ${data.error || 'erro desconhecido'}`);
+  const search = await searchResponse.json().catch(() => ({}));
+  if (!searchResponse.ok || !search.success) {
+    throw new Error(`Busca do Firecrawl falhou (${searchResponse.status}): ${search.error || 'erro desconhecido'}`);
   }
-  return data;
+  const resultados = Array.isArray(search.data) ? search.data : search.data?.web;
+  const primeiro = resultados?.[0];
+  if (!primeiro?.url) throw new Error('Busca do Firecrawl não retornou URL.');
+
+  const scrapeResponse = await fetch(firecrawlScrapeUrl, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: primeiro.url,
+      formats: [{ type: 'json', schema: esquemaExtracao, prompt: promptExtracao }],
+      onlyMainContent: true,
+      timeout: 120000,
+      maxAge: 21600000,
+      removeBase64Images: true,
+      blockAds: true,
+      location: { country: 'BR', languages: ['pt-BR', 'en-US'] },
+    }),
+  });
+  const scrape = await scrapeResponse.json().catch(() => ({}));
+  if (!scrapeResponse.ok || !scrape.success) {
+    throw new Error(`Extração do Firecrawl falhou (${scrapeResponse.status}): ${scrape.error || 'erro desconhecido'}`);
+  }
+  const combinado = { ...primeiro, ...scrape.data, data: scrape.data };
+  return {
+    success: true,
+    data: { web: [combinado] },
+    creditsUsed: Number(search.creditsUsed || 2) + Number(scrape.creditsUsed || 5),
+  };
 }
 
 async function coletar(apiKey, limiteCreditos) {
@@ -218,17 +236,15 @@ async function main() {
       mecanismo: 'Firecrawl JSON estruturado',
       pesquisas: pesquisas.length,
       resultadosPorPesquisa: 1,
-      creditosEstimadosPorDia: pesquisas.length * 5,
-      limiteCreditos: Number.parseInt(process.env.FIRECRAWL_DAILY_CREDIT_LIMIT || '36', 10),
+      creditosEstimadosPorDia: pesquisas.length * 7,
+      limiteCreditos: Number.parseInt(process.env.FIRECRAWL_DAILY_CREDIT_LIMIT || '40', 10),
     }, null, 2));
     return;
   }
 
   if (smokeTest) {
     const data = await buscar(firecrawlKey, pesquisas[0]);
-    const bruto = data.data?.web?.[0] || {};
-    console.log(`Campos do resultado: ${Object.keys(bruto).join(', ')}; internos: ${Object.keys(bruto.data || {}).join(', ')}`);
-    const item = resumirResultado(bruto);
+    const item = resumirResultado(data.data?.web?.[0] || {});
     if (!item) throw new Error('Firecrawl não retornou a extração JSON esperada.');
     console.log(`Integração aprovada: Firecrawl retornou dados estruturados (${data.creditsUsed || 0} créditos).`);
     return;
@@ -241,7 +257,7 @@ async function main() {
     return;
   }
 
-  const limiteCreditos = Number.parseInt(process.env.FIRECRAWL_DAILY_CREDIT_LIMIT || '36', 10);
+  const limiteCreditos = Number.parseInt(process.env.FIRECRAWL_DAILY_CREDIT_LIMIT || '40', 10);
   if (!Number.isInteger(limiteCreditos) || limiteCreditos < 5 || limiteCreditos > 100) {
     throw new Error('FIRECRAWL_DAILY_CREDIT_LIMIT deve ser um inteiro entre 5 e 100.');
   }
