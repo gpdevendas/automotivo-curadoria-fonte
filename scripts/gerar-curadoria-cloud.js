@@ -168,6 +168,7 @@ async function executarAgent(apiKey, prompt) {
     throw new Error(`Firecrawl Agent falhou (${response.status}): ${data.error || 'erro desconhecido'}`);
   }
   if (data.status === 'completed') return data;
+  console.log(`Firecrawl Agent iniciado: campos=${Object.keys(data).join(',')}; id=${JSON.stringify(data.id)}; jobId=${JSON.stringify(data.jobId)}`);
   if (!data.id) throw new Error('Firecrawl Agent não retornou o identificador da pesquisa.');
 
   for (let tentativa = 0; tentativa < 72; tentativa += 1) {
