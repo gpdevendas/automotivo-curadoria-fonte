@@ -6,6 +6,7 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const curadoriaDir = path.join(root, 'curadoria');
 const dryRun = process.argv.includes('--dry-run');
+const smokeTest = process.argv.includes('--smoke-test');
 const firecrawlUrl = 'https://api.firecrawl.dev/v2/search';
 
 const pesquisas = [
@@ -155,7 +156,63 @@ async function pesquisarComFirecrawl(apiKey, limiteCreditos) {
   return { resultados: [...resultados.values()], creditosUsados };
 }
 
+async function chamarGithubModels(apiKey, model, messages, maxTokens) {
+  const response = await fetch('https://models.github.ai/inference/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+    body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens: maxTokens }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = data?.error?.message || JSON.stringify(data).slice(0, 1000);
+    throw new Error(`GitHub Models falhou (${response.status}): ${detail}`);
+  }
+  return data;
+}
+
+async function testarIntegracoes() {
+  const firecrawlKey = process.env.FIRECRAWL_API_KEY;
+  const githubToken = process.env.GITHUB_TOKEN;
+  const model = process.env.GITHUB_MODEL || 'openai/gpt-4.1-mini';
+  if (!firecrawlKey) throw new Error('FIRECRAWL_API_KEY não configurada.');
+  if (!githubToken) throw new Error('GITHUB_TOKEN não configurado.');
+
+  const response = await fetch(firecrawlUrl, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${firecrawlKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query: 'mercado automotivo Brasil notícia hoje',
+      limit: 1,
+      country: 'BR',
+      scrapeOptions: { formats: ['markdown'], onlyMainContent: true },
+    }),
+  });
+  const firecrawl = await response.json().catch(() => ({}));
+  if (!response.ok || !firecrawl.success || !firecrawl.data?.web?.length) {
+    throw new Error(`Teste do Firecrawl falhou (${response.status}): ${firecrawl.error || 'sem resultados'}`);
+  }
+
+  const completion = await chamarGithubModels(githubToken, model, [
+    { role: 'user', content: 'Responda somente com a palavra OK.' },
+  ], 16);
+  if (!/^OK\b/i.test(extrairTexto(completion))) {
+    throw new Error('Teste do GitHub Models retornou uma resposta inesperada.');
+  }
+  console.log(`Integrações aprovadas: Firecrawl e GitHub Models (${model}).`);
+}
+
 async function main() {
+  if (smokeTest) {
+    await testarIntegracoes();
+    return;
+  }
+
   const dataHoje = hojeISO();
   const outputPath = path.join(curadoriaDir, `${dataHoje}.md`);
 
@@ -229,30 +286,10 @@ async function main() {
   const model = process.env.GITHUB_MODEL || 'openai/gpt-4.1-mini';
   console.log(`Gerando digest de ${dataHoje} com ${model} a partir de ${coleta.resultados.length} páginas...`);
 
-  const response = await fetch('https://models.github.ai/inference/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: 'Você é um editor automotivo criterioso. Seja factual, direto e econômico.' },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.2,
-      max_tokens: 4096,
-    }),
-  });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const detail = data?.error?.message || JSON.stringify(data).slice(0, 1000);
-    throw new Error(`GitHub Models falhou (${response.status}): ${detail}`);
-  }
+  const data = await chamarGithubModels(apiKey, model, [
+    { role: 'system', content: 'Você é um editor automotivo criterioso. Seja factual, direto e econômico.' },
+    { role: 'user', content: prompt },
+  ], 4096);
 
   const markdown = limparMarkdown(extrairTexto(data));
   if (!markdown.startsWith('# Curadoria automotiva') || markdown.length < 1000) {
