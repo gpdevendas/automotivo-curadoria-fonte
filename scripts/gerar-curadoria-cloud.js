@@ -226,7 +226,9 @@ async function main() {
 
   if (smokeTest) {
     const data = await buscar(firecrawlKey, pesquisas[0]);
-    const item = resumirResultado(data.data?.web?.[0] || {});
+    const bruto = data.data?.web?.[0] || {};
+    console.log(`Campos do resultado: ${Object.keys(bruto).join(', ')}; internos: ${Object.keys(bruto.data || {}).join(', ')}`);
+    const item = resumirResultado(bruto);
     if (!item) throw new Error('Firecrawl não retornou a extração JSON esperada.');
     console.log(`Integração aprovada: Firecrawl retornou dados estruturados (${data.creditsUsed || 0} créditos).`);
     return;
