@@ -36,10 +36,9 @@ Antes da primeira execução, abra o repositório
 - `PORTAL_GITHUB_TOKEN`: token fine-grained com permissão `Contents: Read and
   write` no repositório `gpdevendas/automotivo-curadoria-portal`.
 
-Não é necessária uma chave da OpenAI nem de outro modelo. O próprio modo de
-extração JSON do Firecrawl resume e classifica cada matéria. A variável
-`FIRECRAWL_DAILY_CREDIT_LIMIT` controla o teto diário da coleta e usa `40` por
-padrão.
+Não é necessária uma chave da OpenAI nem de outro modelo. O Firecrawl Agent
+pesquisa, abre, resume e classifica as matérias usando o modelo econômico
+`spark-1-mini`.
 
 Depois dos secrets, abra **Actions > Atualizar notícias do portal > Run
 workflow** para validar a primeira rodada. Quando a execução na nuvem passar,
@@ -49,11 +48,11 @@ a tarefa local pode ser desativada para evitar duas publicações no mesmo dia:
 Disable-ScheduledTask -TaskName PortalNoticias-AtualizacaoDiaria
 ```
 
-O script `scripts/gerar-curadoria-cloud.js` faz cinco pesquisas e extrai um
-resultado estruturado de cada uma. A estimativa é de cerca de 35 créditos por
-dia útil, dentro dos 1.000 créditos mensais do plano gratuito do Firecrawl. Se
-a cota acabar, a execução falha sem contratar uso pago. O resultado passa por
-`scripts/validar-digest.js` antes da publicação.
+O script `scripts/gerar-curadoria-cloud.js` faz uma execução do Firecrawl Agent
+por dia útil. O Firecrawl oferece cinco execuções gratuitas do Agent por dia;
+esta automação usa somente uma. Se a franquia mudar ou acabar, a execução falha
+sem contratar uso pago. O resultado passa por `scripts/validar-digest.js` antes
+da publicação.
 
 ## Comandos úteis
 

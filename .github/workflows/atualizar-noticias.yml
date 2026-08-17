@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       testar_integracoes:
-        description: Testar a extração estruturada do Firecrawl sem publicar
+        description: Testar o Firecrawl Agent sem publicar
         required: false
         default: false
         type: boolean
@@ -78,7 +78,6 @@ jobs:
         working-directory: automotivo-curadoria-fonte
         env:
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
-          FIRECRAWL_DAILY_CREDIT_LIMIT: ${{ vars.FIRECRAWL_DAILY_CREDIT_LIMIT || '40' }}
         run: node scripts/gerar-curadoria-cloud.js
 
       - name: Validar digest
