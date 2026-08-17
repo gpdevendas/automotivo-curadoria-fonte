@@ -154,7 +154,9 @@ async function buscar(apiKey, query) {
     });
     const scrape = await scrapeResponse.json().catch(() => ({}));
     if (!scrapeResponse.ok || !scrape.success) {
-      ultimoErro = `${scrapeResponse.status}: ${scrape.error || 'erro desconhecido'}`;
+      const host = new URL(resultado.url).hostname;
+      ultimoErro = `${host} ${scrapeResponse.status}: ${scrape.error || 'erro desconhecido'}`;
+      console.warn(`Firecrawl ignorou ${host}: ${scrapeResponse.status}.`);
       continue;
     }
     const combinado = { ...resultado, ...scrape.data, data: scrape.data };
