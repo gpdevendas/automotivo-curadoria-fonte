@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       testar_integracoes:
-        description: Testar o Firecrawl Agent sem publicar
+        description: Testar busca e resumo do Firecrawl sem publicar
         required: false
         default: false
         type: boolean
