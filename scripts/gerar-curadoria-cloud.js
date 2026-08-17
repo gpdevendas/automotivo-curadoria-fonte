@@ -121,7 +121,7 @@ async function buscar(apiKey, query) {
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       query,
-      limit: 1,
+      limit: 3,
       tbs: 'sbd:1,qdr:w',
       location: 'Sao Paulo,Sao Paulo,Brazil',
       country: 'BR',
@@ -133,33 +133,38 @@ async function buscar(apiKey, query) {
     throw new Error(`Busca do Firecrawl falhou (${searchResponse.status}): ${search.error || 'erro desconhecido'}`);
   }
   const resultados = Array.isArray(search.data) ? search.data : search.data?.web;
-  const primeiro = resultados?.[0];
-  if (!primeiro?.url) throw new Error('Busca do Firecrawl não retornou URL.');
+  if (!resultados?.length) throw new Error('Busca do Firecrawl não retornou URL.');
 
-  const scrapeResponse = await fetch(firecrawlScrapeUrl, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      url: primeiro.url,
-      formats: [{ type: 'json', schema: esquemaExtracao, prompt: promptExtracao }],
-      onlyMainContent: true,
-      timeout: 120000,
-      maxAge: 21600000,
-      removeBase64Images: true,
-      blockAds: true,
-      location: { country: 'BR', languages: ['pt-BR', 'en-US'] },
-    }),
-  });
-  const scrape = await scrapeResponse.json().catch(() => ({}));
-  if (!scrapeResponse.ok || !scrape.success) {
-    throw new Error(`Extração do Firecrawl falhou (${scrapeResponse.status}): ${scrape.error || 'erro desconhecido'}`);
+  let ultimoErro = 'nenhuma página compatível';
+  for (const resultado of resultados.slice(0, 3)) {
+    if (!resultado?.url) continue;
+    const scrapeResponse = await fetch(firecrawlScrapeUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: resultado.url,
+        formats: [{ type: 'json', schema: esquemaExtracao, prompt: promptExtracao }],
+        onlyMainContent: true,
+        timeout: 120000,
+        maxAge: 21600000,
+        removeBase64Images: true,
+        blockAds: true,
+        location: { country: 'BR', languages: ['pt-BR', 'en-US'] },
+      }),
+    });
+    const scrape = await scrapeResponse.json().catch(() => ({}));
+    if (!scrapeResponse.ok || !scrape.success) {
+      ultimoErro = `${scrapeResponse.status}: ${scrape.error || 'erro desconhecido'}`;
+      continue;
+    }
+    const combinado = { ...resultado, ...scrape.data, data: scrape.data };
+    return {
+      success: true,
+      data: { web: [combinado] },
+      creditsUsed: Number(search.creditsUsed || 2) + Number(scrape.creditsUsed || 5),
+    };
   }
-  const combinado = { ...primeiro, ...scrape.data, data: scrape.data };
-  return {
-    success: true,
-    data: { web: [combinado] },
-    creditsUsed: Number(search.creditsUsed || 2) + Number(scrape.creditsUsed || 5),
-  };
+  throw new Error(`Extração do Firecrawl falhou em todos os resultados (${ultimoErro}).`);
 }
 
 async function coletar(apiKey, limiteCreditos) {
