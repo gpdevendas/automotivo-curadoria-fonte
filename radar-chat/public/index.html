@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Chat — Grand Prix de Vendas</title>
+<link rel="stylesheet" href="/chat.css">
+</head>
+<body>
+
+  <section id="tela-senha" class="tela">
+    <div class="card-login">
+      <h1>Radar Chat</h1>
+      <p>Acesso restrito ao time. Digite a senha pra entrar.</p>
+      <input id="input-senha" type="password" placeholder="Senha" autocomplete="current-password">
+      <button id="btn-entrar">Entrar</button>
+      <p id="erro-senha" class="erro"></p>
+    </div>
+  </section>
+
+  <section id="tela-chat" class="tela oculta">
+    <header>
+      <h1>Radar Chat</h1>
+      <span class="subtitulo">Grand Prix de Vendas · assistente interno</span>
+    </header>
+
+    <div id="presets" class="presets"></div>
+
+    <div id="thread" class="thread"></div>
+
+    <div class="upload-bar">
+      <label for="input-upload" class="upload-label">📎 Subir documento (.txt/.md)</label>
+      <input id="input-upload" type="file" accept=".txt,.md" hidden>
+      <span id="upload-status"></span>
+    </div>
+
+    <form id="form-mensagem" class="form-mensagem">
+      <input id="input-mensagem" type="text" placeholder="Escreva sua pergunta..." autocomplete="off">
+      <button type="submit">Enviar</button>
+    </form>
+  </section>
+
+  <script src="/chat.js"></script>
+</body>
+</html>

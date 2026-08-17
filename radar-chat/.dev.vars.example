@@ -1,0 +1,3 @@
+GEMINI_API_KEY=cole_sua_chave_aqui
+CHAT_PASSWORD=escolha_uma_senha
+SESSION_SECRET=qualquer_string_aleatoria_longa
