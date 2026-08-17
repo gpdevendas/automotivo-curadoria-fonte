@@ -116,12 +116,14 @@ function resumirResultado(result) {
 }
 
 async function buscar(apiKey, query) {
+  const querySemRedes = `${query} -site:instagram.com -site:facebook.com -site:youtube.com -site:tiktok.com`;
   const searchResponse = await fetch(firecrawlUrl, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      query,
+      query: querySemRedes,
       limit: 3,
+      sources: ['news'],
       tbs: 'sbd:1,qdr:w',
       location: 'Sao Paulo,Sao Paulo,Brazil',
       country: 'BR',
@@ -132,7 +134,7 @@ async function buscar(apiKey, query) {
   if (!searchResponse.ok || !search.success) {
     throw new Error(`Busca do Firecrawl falhou (${searchResponse.status}): ${search.error || 'erro desconhecido'}`);
   }
-  const resultados = Array.isArray(search.data) ? search.data : search.data?.web;
+  const resultados = Array.isArray(search.data) ? search.data : (search.data?.news || search.data?.web);
   if (!resultados?.length) throw new Error('Busca do Firecrawl não retornou URL.');
 
   let ultimoErro = 'nenhuma página compatível';
