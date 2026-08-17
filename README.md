@@ -33,11 +33,13 @@ Antes da primeira execução, abra o repositório
 **Settings > Secrets and variables > Actions**:
 
 - `OPENAI_API_KEY`: chave de um projeto da OpenAI API com faturamento ativo;
+- `FIRECRAWL_API_KEY`: chave criada no dashboard do Firecrawl;
 - `PORTAL_GITHUB_TOKEN`: token fine-grained com permissão `Contents: Read and
   write` no repositório `gpdevendas/automotivo-curadoria-portal`.
 
 Opcionalmente, crie a variável de repositório `OPENAI_MODEL`. Sem ela, o
-workflow usa `gpt-5.6`.
+workflow usa `gpt-5.6-terra`. A variável `FIRECRAWL_DAILY_CREDIT_LIMIT`
+controla o teto diário da coleta e usa `40` por padrão.
 
 Depois dos secrets, abra **Actions > Atualizar notícias do portal > Run
 workflow** para validar a primeira rodada. Quando a execução na nuvem passar,
@@ -47,9 +49,10 @@ a tarefa local pode ser desativada para evitar duas publicações no mesmo dia:
 Disable-ScheduledTask -TaskName PortalNoticias-AtualizacaoDiaria
 ```
 
-O script `scripts/gerar-curadoria-cloud.js` usa a Responses API com a
-ferramenta hospedada `web_search`. O resultado passa por
-`scripts/validar-digest.js` antes da geração e publicação do portal.
+O script `scripts/gerar-curadoria-cloud.js` usa o Firecrawl para pesquisar e
+raspar até quatro resultados em oito frentes editoriais. A Responses API recebe
+somente o conteúdo já limpo, sem usar a ferramenta paga `web_search`. O
+resultado passa por `scripts/validar-digest.js` antes da publicação.
 
 ## Comandos úteis
 

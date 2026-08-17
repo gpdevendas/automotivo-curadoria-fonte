@@ -30,10 +30,15 @@ jobs:
         shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
           PORTAL_GITHUB_TOKEN: ${{ secrets.PORTAL_GITHUB_TOKEN }}
         run: |
           if [[ -z "$OPENAI_API_KEY" ]]; then
             echo "::error::Cadastre o secret OPENAI_API_KEY em Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          if [[ -z "$FIRECRAWL_API_KEY" ]]; then
+            echo "::error::Cadastre o secret FIRECRAWL_API_KEY em Settings > Secrets and variables > Actions."
             exit 1
           fi
           if [[ -z "$PORTAL_GITHUB_TOKEN" ]]; then
@@ -64,7 +69,9 @@ jobs:
         working-directory: automotivo-curadoria-fonte
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.6' }}
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          FIRECRAWL_DAILY_CREDIT_LIMIT: ${{ vars.FIRECRAWL_DAILY_CREDIT_LIMIT || '40' }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.6-terra' }}
         run: node scripts/gerar-curadoria-cloud.js
 
       - name: Validar digest
