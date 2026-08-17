@@ -22,6 +22,35 @@ Manager precisa manter acesso aos dois repositórios.
 
 Logs de cada execução ficam em `logs/` e não entram no Git.
 
+## Execução na nuvem
+
+O workflow `.github/workflows/atualizar-noticias.yml` roda no GitHub Actions
+de segunda a sexta, às 12:00 UTC (9h em `America/Sao_Paulo`). Ele não depende
+do computador local.
+
+Antes da primeira execução, abra o repositório
+`gpdevendas/automotivo-curadoria-fonte` no GitHub e cadastre em
+**Settings > Secrets and variables > Actions**:
+
+- `OPENAI_API_KEY`: chave de um projeto da OpenAI API com faturamento ativo;
+- `PORTAL_GITHUB_TOKEN`: token fine-grained com permissão `Contents: Read and
+  write` no repositório `gpdevendas/automotivo-curadoria-portal`.
+
+Opcionalmente, crie a variável de repositório `OPENAI_MODEL`. Sem ela, o
+workflow usa `gpt-5.6`.
+
+Depois dos secrets, abra **Actions > Atualizar notícias do portal > Run
+workflow** para validar a primeira rodada. Quando a execução na nuvem passar,
+a tarefa local pode ser desativada para evitar duas publicações no mesmo dia:
+
+```powershell
+Disable-ScheduledTask -TaskName PortalNoticias-AtualizacaoDiaria
+```
+
+O script `scripts/gerar-curadoria-cloud.js` usa a Responses API com a
+ferramenta hospedada `web_search`. O resultado passa por
+`scripts/validar-digest.js` antes da geração e publicação do portal.
+
 ## Comandos úteis
 
 ```powershell

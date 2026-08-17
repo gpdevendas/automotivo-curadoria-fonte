@@ -1,0 +1,89 @@
+name: Atualizar notícias do portal
+
+on:
+  schedule:
+    # GitHub Actions usa UTC. 12:00 UTC = 09:00 em America/Sao_Paulo.
+    - cron: "0 12 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: atualizar-noticias
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    name: Pesquisar, validar e publicar
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Baixar repositório fonte
+        uses: actions/checkout@v4
+        with:
+          path: automotivo-curadoria-fonte
+          fetch-depth: 0
+
+      - name: Confirmar credenciais
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PORTAL_GITHUB_TOKEN: ${{ secrets.PORTAL_GITHUB_TOKEN }}
+        run: |
+          if [[ -z "$OPENAI_API_KEY" ]]; then
+            echo "::error::Cadastre o secret OPENAI_API_KEY em Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          if [[ -z "$PORTAL_GITHUB_TOKEN" ]]; then
+            echo "::error::Cadastre o secret PORTAL_GITHUB_TOKEN com acesso de escrita ao repositório do portal."
+            exit 1
+          fi
+
+      - name: Baixar repositório do portal
+        uses: actions/checkout@v4
+        with:
+          repository: gpdevendas/automotivo-curadoria-portal
+          token: ${{ secrets.PORTAL_GITHUB_TOKEN }}
+          path: automotivo-curadoria-portal
+          fetch-depth: 0
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Configurar autoria dos commits
+        shell: bash
+        run: |
+          git config --global user.name "GPV Notícias Bot"
+          git config --global user.email "actions@users.noreply.github.com"
+
+      - name: Gerar curadoria com pesquisa web
+        working-directory: automotivo-curadoria-fonte
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-5.6' }}
+        run: node scripts/gerar-curadoria-cloud.js
+
+      - name: Validar digest
+        working-directory: automotivo-curadoria-fonte
+        run: node scripts/validar-digest.js
+
+      - name: Gerar e publicar portal
+        working-directory: automotivo-curadoria-fonte
+        run: node scripts/gerar-dashboard.js
+
+      - name: Publicar repositório fonte
+        working-directory: automotivo-curadoria-fonte
+        shell: bash
+        run: |
+          DATA_SP=$(TZ=America/Sao_Paulo date +%F)
+          git add -- "curadoria/${DATA_SP}.md" embasamento.md
+          if git diff --cached --quiet; then
+            echo "Repositório fonte já estava atualizado."
+            exit 0
+          fi
+          git commit -m "Adiciona digest de ${DATA_SP} e atualiza embasamento.md"
+          git push
