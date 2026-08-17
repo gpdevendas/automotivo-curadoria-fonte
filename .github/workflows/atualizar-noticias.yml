@@ -7,14 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       testar_integracoes:
-        description: Testar Firecrawl e GitHub Models sem publicar
+        description: Testar a extração estruturada do Firecrawl sem publicar
         required: false
         default: false
         type: boolean
 
 permissions:
   contents: write
-  models: read
 
 concurrency:
   group: atualizar-noticias
@@ -67,23 +66,19 @@ jobs:
           git config --global user.name "GPV Notícias Bot"
           git config --global user.email "actions@users.noreply.github.com"
 
-      - name: Testar integrações gratuitas
+      - name: Testar integração gratuita
         if: ${{ inputs.testar_integracoes == true }}
         working-directory: automotivo-curadoria-fonte
         env:
-          GITHUB_TOKEN: ${{ github.token }}
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
-          GITHUB_MODEL: ${{ vars.GITHUB_MODEL || 'openai/gpt-4.1-mini' }}
         run: node scripts/gerar-curadoria-cloud.js --smoke-test
 
       - name: Gerar curadoria com pesquisa web
         if: ${{ inputs.testar_integracoes != true }}
         working-directory: automotivo-curadoria-fonte
         env:
-          GITHUB_TOKEN: ${{ github.token }}
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
-          FIRECRAWL_DAILY_CREDIT_LIMIT: ${{ vars.FIRECRAWL_DAILY_CREDIT_LIMIT || '24' }}
-          GITHUB_MODEL: ${{ vars.GITHUB_MODEL || 'openai/gpt-4.1-mini' }}
+          FIRECRAWL_DAILY_CREDIT_LIMIT: ${{ vars.FIRECRAWL_DAILY_CREDIT_LIMIT || '36' }}
         run: node scripts/gerar-curadoria-cloud.js
 
       - name: Validar digest
