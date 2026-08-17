@@ -32,14 +32,15 @@ Antes da primeira execução, abra o repositório
 `gpdevendas/automotivo-curadoria-fonte` no GitHub e cadastre em
 **Settings > Secrets and variables > Actions**:
 
-- `OPENAI_API_KEY`: chave de um projeto da OpenAI API com faturamento ativo;
 - `FIRECRAWL_API_KEY`: chave criada no dashboard do Firecrawl;
 - `PORTAL_GITHUB_TOKEN`: token fine-grained com permissão `Contents: Read and
   write` no repositório `gpdevendas/automotivo-curadoria-portal`.
 
-Opcionalmente, crie a variável de repositório `OPENAI_MODEL`. Sem ela, o
-workflow usa `gpt-5.6-terra`. A variável `FIRECRAWL_DAILY_CREDIT_LIMIT`
-controla o teto diário da coleta e usa `40` por padrão.
+Não é necessária uma chave da OpenAI. A análise usa o GitHub Models com o
+`GITHUB_TOKEN` gratuito criado automaticamente pelo workflow. Opcionalmente,
+crie a variável `GITHUB_MODEL`; sem ela, o workflow usa
+`openai/gpt-4.1-mini`. A variável `FIRECRAWL_DAILY_CREDIT_LIMIT` controla o
+teto diário da coleta e usa `24` por padrão.
 
 Depois dos secrets, abra **Actions > Atualizar notícias do portal > Run
 workflow** para validar a primeira rodada. Quando a execução na nuvem passar,
@@ -50,9 +51,10 @@ Disable-ScheduledTask -TaskName PortalNoticias-AtualizacaoDiaria
 ```
 
 O script `scripts/gerar-curadoria-cloud.js` usa o Firecrawl para pesquisar e
-raspar até quatro resultados em oito frentes editoriais. A Responses API recebe
-somente o conteúdo já limpo, sem usar a ferramenta paga `web_search`. O
-resultado passa por `scripts/validar-digest.js` antes da publicação.
+raspar até dois resultados em oito frentes editoriais. O GitHub Models recebe
+um contexto compacto para permanecer dentro da cota gratuita. Se a cota do
+GitHub Models ou do Firecrawl acabar, a execução falha sem contratar uso pago.
+O resultado passa por `scripts/validar-digest.js` antes da publicação.
 
 ## Comandos úteis
 
