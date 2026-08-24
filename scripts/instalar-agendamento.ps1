@@ -23,6 +23,8 @@ $trigger = New-ScheduledTaskTrigger -Weekly -WeeksInterval 1 -DaysOfWeek Monday,
 $settings = New-ScheduledTaskSettingsSet `
   -StartWhenAvailable `
   -WakeToRun `
+  -AllowStartIfOnBatteries `
+  -DontStopIfGoingOnBatteries `
   -MultipleInstances IgnoreNew `
   -ExecutionTimeLimit (New-TimeSpan -Hours 2)
 $principal = New-ScheduledTaskPrincipal `

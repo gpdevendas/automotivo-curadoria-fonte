@@ -1,9 +1,6 @@
 name: Atualizar notícias do portal
 
 on:
-  schedule:
-    # GitHub Actions usa UTC. 12:00 UTC = 09:00 em America/Sao_Paulo.
-    - cron: "0 12 * * 1-5"
   workflow_dispatch:
     inputs:
       testar_integracoes:

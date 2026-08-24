@@ -50,7 +50,7 @@ function Assert-Digest([string]$Path, [string]$ExpectedDate) {
   }
 
   $content = Get-Content -Raw -Encoding UTF8 -LiteralPath $Path
-  if ($content -notmatch "(?m)^# Curadoria automotiva .+ $([regex]::Escape($ExpectedDate))$") {
+  if ($content -notmatch "(?m)^# Curadoria automotiva .+ $([regex]::Escape($ExpectedDate))\r?$") {
     throw 'O título do digest não contém a data esperada.'
   }
 
