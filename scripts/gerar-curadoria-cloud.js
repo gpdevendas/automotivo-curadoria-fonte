@@ -7,6 +7,7 @@ const root = path.join(__dirname, '..');
 const curadoriaDir = path.join(root, 'curadoria');
 const dryRun = process.argv.includes('--dry-run');
 const smokeTest = process.argv.includes('--smoke-test');
+const META_NOTICIAS = 15;
 const searchUrl = 'https://api.firecrawl.dev/v2/search';
 const scrapeUrl = 'https://api.firecrawl.dev/v2/scrape';
 
@@ -92,7 +93,7 @@ function urlsAnteriores(dataHoje) {
   return urls;
 }
 
-async function pesquisar(apiKey, pesquisa, dataHoje) {
+async function pesquisar(apiKey, pesquisa, dataHoje, vistas = new Set(), limite = 3) {
   const headers = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
   const query = pesquisa.query;
   const corpo = { query, limit: 5, sources: ['news', 'web'], tbs: 'sbd:1,qdr:w', country: 'BR' };
@@ -107,8 +108,14 @@ async function pesquisar(apiKey, pesquisa, dataHoje) {
     ? search.data
     : [...(search.data?.news || []), ...(search.data?.web || [])];
 
+  const noticias = [];
   for (const resultado of resultados.slice(0, 10)) {
     if (!resultado?.url) continue;
+    let url;
+    try { url = new URL(resultado.url); } catch { continue; }
+    if (!['http:', 'https:'].includes(url.protocol)) continue;
+    url.hash = '';
+    if (vistas.has(url.toString())) continue;
     const publicadaBusca = dataISO(
       resultado.date
       || resultado.publishedDate
@@ -149,9 +156,7 @@ async function pesquisar(apiKey, pesquisa, dataHoje) {
       dataHoje,
     );
     if (!dataNaJanela(publicada, dataHoje)) continue;
-    const url = new URL(resultado.url);
-    url.hash = '';
-    return {
+    noticias.push({
       titulo: normalizarLinha(resultado.title || scrape.data.metadata?.title, 220),
       fonte: normalizarLinha(scrape.data.metadata?.ogSiteName || url.hostname.replace(/^www\./, ''), 100),
       url: url.toString(),
@@ -159,9 +164,12 @@ async function pesquisar(apiKey, pesquisa, dataHoje) {
       fato: normalizarLinha(scrape.data.summary),
       leitura: pesquisa.leitura,
       categoria: pesquisa.categoria,
-    };
+    });
+    vistas.add(url.toString());
+    if (noticias.length >= limite) break;
   }
-  return null;
+  console.log(`${pesquisa.categoria}: ${resultados.length} resultados, ${noticias.length} notícias novas aproveitadas.`);
+  return noticias;
 }
 
 function formatarDataBr(iso) {
@@ -174,15 +182,17 @@ function gerarMarkdown(dataHoje, noticias) {
     `# Curadoria automotiva — ${dataHoje}`, '',
     `${noticias.length} notícias selecionadas (janela: últimos 7 dias corridos).`, '', '---',
   ];
-  for (const item of noticias) {
-    linhas.push('', `## ${item.categoria}`, '',
+  const categorias = Map.groupBy(noticias, item => item.categoria);
+  for (const [categoria, itens] of categorias) {
+    linhas.push('', `## ${categoria}`, '');
+    for (const item of itens) linhas.push(
       `**${item.titulo}** — ${item.fonte}, ${formatarDataBr(item.dataPublicacao)}.`,
       `Fato: ${item.fato}`,
       `Leitura: ${item.leitura}`,
       `[Fonte](${item.url})`, '');
   }
   linhas.push('## Nota da curadoria', '',
-    noticias.length < pesquisas.length
+    noticias.length < META_NOTICIAS
       ? `Foram publicadas ${noticias.length} notícias porque os outros resultados estavam sem data confirmável, bloqueados ou repetidos.`
       : 'A seleção prioriza variedade de temas e impacto comercial dentro da janela editorial.', '');
   return linhas.join('\n');
@@ -193,46 +203,62 @@ async function main() {
   const dataHoje = hojeISO();
   if (!apiKey && !dryRun) throw new Error('FIRECRAWL_API_KEY não configurada.');
   if (dryRun) {
-    console.log(JSON.stringify({ dataHoje, mecanismo: 'Firecrawl Search + Summary', pesquisas: pesquisas.length, creditosEstimadosPorDia: 35 }, null, 2));
+    console.log(JSON.stringify({ dataHoje, mecanismo: 'Firecrawl Search + Summary', pesquisas: pesquisas.length, metaNoticias: META_NOTICIAS, maxResumosPorExecucao: pesquisas.length * 10 }, null, 2));
     return;
   }
   if (smokeTest) {
-    const item = await pesquisar(apiKey, pesquisas[0], dataHoje);
-    if (!item) throw new Error('Firecrawl não retornou notícia resumida e datada.');
+    const itens = await pesquisar(apiKey, pesquisas[0], dataHoje, new Set(), 1);
+    if (!itens.length) throw new Error('Firecrawl não retornou notícia resumida e datada.');
     console.log('Integração aprovada: busca e resumo do Firecrawl responderam corretamente.');
     return;
   }
 
   const outputPath = path.join(curadoriaDir, `${dataHoje}.md`);
-  const fontesDoDigestAtual = new Set();
+  let conteudoAtual = '';
+  let itensAtuais = 0;
   if (fs.existsSync(outputPath)) {
     const atual = fs.readFileSync(outputPath, 'utf8');
-    const itensAtuais = (atual.match(/^\*\*[^*]+\*\*/gm) || []).length;
-    if (itensAtuais >= 2) {
+    conteudoAtual = atual.split(/^## Nota da curadoria\s*$/m)[0].trimEnd();
+    itensAtuais = (atual.match(/^\*\*[^*]+\*\*/gm) || []).length;
+    if (itensAtuais >= META_NOTICIAS) {
       console.log(`Digest do dia já existe: ${outputPath}`);
       return;
     }
-    for (const match of atual.matchAll(/\[Fonte\]\((https?:\/\/[^)]+)\)/g)) fontesDoDigestAtual.add(match[1]);
-    console.log(`Digest do dia tem apenas ${itensAtuais} notícia(s); refazendo a busca.`);
+    console.log(`Digest do dia tem ${itensAtuais} notícia(s); buscando complementos.`);
   }
   const anteriores = urlsAnteriores(dataHoje);
-  for (const url of fontesDoDigestAtual) anteriores.add(url);
+  for (const match of conteudoAtual.matchAll(/\[Fonte\]\((https?:\/\/[^)]+)\)/g)) anteriores.add(match[1]);
   const noticias = [];
   for (const pesquisa of pesquisas) {
     try {
-      const item = await pesquisar(apiKey, pesquisa, dataHoje);
-      if (item && !anteriores.has(item.url) && !noticias.some((atual) => atual.url === item.url)) noticias.push(item);
+      const vagas = META_NOTICIAS - itensAtuais - noticias.length;
+      if (vagas <= 0) break;
+      noticias.push(...await pesquisar(apiKey, pesquisa, dataHoje, anteriores, Math.min(3, vagas)));
     } catch (error) {
       console.warn(error instanceof Error ? error.message : error);
     }
   }
-  if (noticias.length < 1) throw new Error(`Somente ${noticias.length} notícia(s) passou(aram) pela validação; publicação cancelada.`);
+  if (!noticias.length && itensAtuais) {
+    console.log('Nenhum complemento válido; digest existente preservado.');
+    return;
+  }
+  if (!noticias.length) throw new Error('Nenhuma notícia passou pela validação; publicação cancelada.');
   fs.mkdirSync(curadoriaDir, { recursive: true });
-  fs.writeFileSync(outputPath, gerarMarkdown(dataHoje, noticias), 'utf8');
-  console.log(`Digest criado: ${outputPath} (${noticias.length} notícias).`);
+  const total = itensAtuais + noticias.length;
+  let markdown = gerarMarkdown(dataHoje, noticias);
+  if (conteudoAtual) {
+    const novosItens = markdown.slice(markdown.indexOf('\n## ')).split(/^## Nota da curadoria\s*$/m)[0].trimEnd();
+    markdown = conteudoAtual.replace(/^\d+ notícias selecionadas.*$/m, `${total} notícias selecionadas (janela: últimos 7 dias corridos).`)
+      + '\n' + novosItens + '\n\n## Nota da curadoria\n\n'
+      + `Edição complementada: ${total} notícias no total; ${noticias.length} novas nesta execução.\n`;
+  }
+  fs.writeFileSync(outputPath, markdown, 'utf8');
+  console.log(`Digest atualizado: ${outputPath} (${total} notícias).`);
 }
 
-main().catch((error) => {
+module.exports = { pesquisar, gerarMarkdown, main };
+
+if (require.main === module) main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);
   process.exit(1);
 });

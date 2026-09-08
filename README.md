@@ -25,9 +25,9 @@ Logs de cada execução ficam em `logs/` e não entram no Git.
 
 ## Execução na nuvem
 
-O workflow `.github/workflows/atualizar-noticias.yml` é uma alternativa manual
-no GitHub Actions. Ele não depende do computador local e não possui agenda
-automática, evitando duas publicações concorrentes no mesmo dia.
+O workflow `.github/workflows/atualizar-noticias.yml` roda no GitHub Actions
+de segunda a sexta às 9h de Brasília e também aceita execução manual.
+Ele não depende do computador local.
 
 Antes da primeira execução, abra o repositório
 `gpdevendas/automotivo-curadoria-fonte` no GitHub e cadastre em
@@ -44,11 +44,19 @@ do portal.
 Depois dos secrets, abra **Actions > Atualizar notícias do portal > Run
 workflow** quando precisar executar manualmente na nuvem.
 
-O script `scripts/gerar-curadoria-cloud.js` pesquisa cinco frentes e resume uma
-matéria de cada. A estimativa é de cerca de 35 créditos por dia útil, dentro dos
-1.000 créditos mensais do plano gratuito. Se a franquia mudar ou acabar, a
-execução falha sem contratar uso pago. O resultado passa por
-`scripts/validar-digest.js` antes da publicação.
+O script `scripts/gerar-curadoria-cloud.js` pesquisa cinco frentes e seleciona
+até três notícias novas por frente, com teto de 15 por edição. Resultados já
+publicados são descartados antes de pedir o resumo, e a busca continua nos
+demais candidatos. Uma edição parcial pode ser complementada em nova execução;
+os itens já salvos são preservados. Se não houver material válido suficiente,
+o digest registra a quantidade obtida.
+
+Cada execução faz cinco buscas e pode tentar até 50 resumos (dez candidatos
+por frente). O consumo varia conforme duplicatas, bloqueios e datas válidas;
+a estimativa anterior de 35 créditos por dia não se aplica a esse volume.
+O resultado passa por `scripts/validar-digest.js` antes da publicação.
+
+Teste de regressão sem consumir API nem publicar: `node --test scripts/curadoria.test.js`.
 
 ## Comandos úteis
 

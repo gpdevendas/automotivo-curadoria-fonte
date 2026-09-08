@@ -121,7 +121,7 @@ const digests = arquivos.map((arquivo) => {
     if (matchCategoria) {
       fecharItem();
       catAtual = matchCategoria[1].trim();
-      categorias[catAtual] = [];
+      categorias[catAtual] ||= [];
       continue;
     }
     const matchItemAntigo = linha.match(/^-\s+(.+)$/);
@@ -387,7 +387,7 @@ const html = `<!DOCTYPE html>
       return CATEGORIA_ORDEM.length;
     }
 
-    // --- Achata itens (sem Destaques do dia), tira placeholder e limita a 3 por categoria/dia ---
+    // --- Achata todos os itens (sem Destaques do dia) e tira placeholders ---
     var todosItens = [];
     var todosDestaques = [];
     dados.forEach(function (dia) {
@@ -401,7 +401,6 @@ const html = `<!DOCTYPE html>
         }
         categorias[cat]
           .filter(function (texto) { return !PLACEHOLDER_RE.test(texto.trim()); })
-          .slice(0, 3)
           .forEach(function (texto) {
             todosItens.push({ cat: cat, texto: texto, data: dia.data, blog: ehItemBlog(texto) });
           });
