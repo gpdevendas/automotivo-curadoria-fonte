@@ -55,6 +55,8 @@ function dataISO(value, dataHoje) {
   const iso = texto.match(/(20\d{2})-(\d{2})-(\d{2})/);
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
   const relativo = texto.toLowerCase().match(/(\d+)\s*(minute|hour|day|week|minuto|hora|dia|semana)s?/);
+  const timestamp = Date.parse(texto);
+  if (!Number.isNaN(timestamp)) return new Date(timestamp).toISOString().slice(0, 10);
   if (!relativo) return '';
   const quantidade = Number(relativo[1]);
   const unidade = relativo[2];
@@ -195,11 +197,19 @@ async function main() {
   }
 
   const outputPath = path.join(curadoriaDir, `${dataHoje}.md`);
+  const fontesDoDigestAtual = new Set();
   if (fs.existsSync(outputPath)) {
-    console.log(`Digest do dia já existe: ${outputPath}`);
-    return;
+    const atual = fs.readFileSync(outputPath, 'utf8');
+    const itensAtuais = (atual.match(/^\*\*[^*]+\*\*/gm) || []).length;
+    if (itensAtuais >= 2) {
+      console.log(`Digest do dia já existe: ${outputPath}`);
+      return;
+    }
+    for (const match of atual.matchAll(/\[Fonte\]\((https?:\/\/[^)]+)\)/g)) fontesDoDigestAtual.add(match[1]);
+    console.log(`Digest do dia tem apenas ${itensAtuais} notícia(s); refazendo a busca.`);
   }
   const anteriores = urlsAnteriores(dataHoje);
+  for (const url of fontesDoDigestAtual) anteriores.add(url);
   const noticias = [];
   for (const pesquisa of pesquisas) {
     try {
