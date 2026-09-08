@@ -98,7 +98,14 @@ async function pesquisar(apiKey, pesquisa, dataHoje) {
 
   for (const resultado of resultados.slice(0, 3)) {
     if (!resultado?.url) continue;
-    const publicada = dataISO(resultado.date, dataHoje);
+    const publicada = dataISO(
+      resultado.date
+      || resultado.publishedDate
+      || resultado.published_date
+      || resultado.metadata?.publishedTime
+      || resultado.metadata?.publishedDate,
+      dataHoje,
+    );
     if (!dataNaJanela(publicada, dataHoje)) continue;
     const scrapeResponse = await fetch(scrapeUrl, {
       method: 'POST', headers,
