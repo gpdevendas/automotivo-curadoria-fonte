@@ -90,13 +90,15 @@ async function pesquisar(apiKey, pesquisa, dataHoje) {
   const query = `${pesquisa.query} -site:instagram.com -site:facebook.com -site:youtube.com -site:tiktok.com`;
   const response = await fetch(searchUrl, {
     method: 'POST', headers,
-    body: JSON.stringify({ query, limit: 3, sources: ['news'], tbs: 'sbd:1,qdr:w', country: 'BR' }),
+    body: JSON.stringify({ query, limit: 5, sources: ['news', 'web'], tbs: 'sbd:1,qdr:w', country: 'BR' }),
   });
   const search = await response.json().catch(() => ({}));
   if (!response.ok || !search.success) throw new Error(`Busca falhou (${response.status}): ${search.error || 'erro desconhecido'}`);
-  const resultados = Array.isArray(search.data) ? search.data : (search.data?.news || search.data?.web || []);
+  const resultados = Array.isArray(search.data)
+    ? search.data
+    : [...(search.data?.news || []), ...(search.data?.web || [])];
 
-  for (const resultado of resultados.slice(0, 3)) {
+  for (const resultado of resultados.slice(0, 10)) {
     if (!resultado?.url) continue;
     const publicadaBusca = dataISO(
       resultado.date
