@@ -61,9 +61,7 @@ function dataISO(value, dataHoje) {
   const dias = /week|semana/.test(unidade) ? quantidade * 7 : (/day|dia/.test(unidade) ? quantidade : 0);
   const date = new Date(`${dataHoje}T12:00:00-03:00`);
   date.setUTCDate(date.getUTCDate() - dias);
-  if (dias > 0 || relativo) return date.toISOString().slice(0, 10);
-  const timestamp = Date.parse(texto);
-  return Number.isNaN(timestamp) ? '' : new Date(timestamp).toISOString().slice(0, 10);
+  return date.toISOString().slice(0, 10);
 }
 
 function dataNaJanela(dataPublicacao, dataHoje) {
@@ -100,7 +98,7 @@ async function pesquisar(apiKey, pesquisa, dataHoje) {
 
   for (const resultado of resultados.slice(0, 3)) {
     if (!resultado?.url) continue;
-    const publicada = dataISO(
+    const publicadaBusca = dataISO(
       resultado.date
       || resultado.publishedDate
       || resultado.published_date
@@ -112,7 +110,6 @@ async function pesquisar(apiKey, pesquisa, dataHoje) {
       || resultado.metadata?.date,
       dataHoje,
     );
-    if (!dataNaJanela(publicada, dataHoje)) continue;
     const scrapeResponse = await fetch(scrapeUrl, {
       method: 'POST', headers,
       body: JSON.stringify({
@@ -132,6 +129,15 @@ async function pesquisar(apiKey, pesquisa, dataHoje) {
       console.warn(`Firecrawl ignorou ${host}: ${scrapeResponse.status}.`);
       continue;
     }
+    const publicada = dataISO(
+      publicadaBusca
+      || scrape.data.metadata?.publishedTime
+      || scrape.data.metadata?.publishedDate
+      || scrape.data.metadata?.datePublished
+      || scrape.data.metadata?.date,
+      dataHoje,
+    );
+    if (!dataNaJanela(publicada, dataHoje)) continue;
     const url = new URL(resultado.url);
     url.hash = '';
     return {
