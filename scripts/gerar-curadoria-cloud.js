@@ -13,26 +13,31 @@ const scrapeUrl = 'https://api.firecrawl.dev/v2/scrape';
 const pesquisas = [
   {
     query: 'Fenabrave Anfavea FIPE emplacamentos impostos Mover mercado carros Brasil',
+    dominios: ['g1.globo.com', 'uol.com.br', 'fenabrave.org.br', 'anfavea.com.br'],
     categoria: 'Compra e venda / mercado',
     leitura: 'Para concessionárias, o principal é medir o efeito em demanda, preço, estoque e condições comerciais antes de ajustar oferta ou campanha.',
   },
   {
     query: 'montadora fábrica investimento produção veículos Brasil AutoData',
+    dominios: ['autodata.com.br', 'automotivebusiness.com.br', 'g1.globo.com', 'anfavea.com.br'],
     categoria: 'Indústria automotiva, produção e investimentos',
     leitura: 'O impacto prático está em disponibilidade de produto, prazo, capacidade industrial e pressão competitiva sobre a rede e os fornecedores.',
   },
   {
     query: 'lançamento carro novo elétrico híbrido Brasil AutoPapo Quatro Rodas Motor1',
+    dominios: ['autopapo.com.br', 'quatrorodas.abril.com.br', 'motor1.com', 'g1.globo.com'],
     categoria: 'Novidades e lançamentos — Brasil',
     leitura: 'A rede deve separar anúncio de disponibilidade real e conferir preço, prazo e posicionamento antes de transformar a novidade em argumento de venda.',
   },
   {
     query: 'new car launch electric hybrid global automotive industry',
+    dominios: ['motor1.com', 'insideevs.com', 'reuters.com', 'cnevpost.com', 'autocar.co.uk'],
     categoria: 'Novidades e lançamentos — Internacional',
     leitura: 'É um sinal de tendência e concorrência; qualquer efeito para o Brasil depende de confirmação de mercado, homologação, preço e calendário local.',
   },
   {
     query: 'campanha publicidade montadora concessionária locadora Propmark Meio Mensagem',
+    dominios: ['propmark.com.br', 'meioemensagem.com.br', 'mundodomarketing.com.br'],
     categoria: 'Marketing automotivo',
     leitura: 'Para marketing, vale observar proposta, canal e prova concreta da campanha, evitando copiar formato sem validar aderência ao público e à operação comercial.',
   },
@@ -89,10 +94,12 @@ function urlsAnteriores(dataHoje) {
 
 async function pesquisar(apiKey, pesquisa, dataHoje) {
   const headers = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
-  const query = `${pesquisa.query} -site:instagram.com -site:facebook.com -site:youtube.com -site:tiktok.com`;
+  const query = pesquisa.query;
+  const corpo = { query, limit: 5, sources: ['news', 'web'], tbs: 'sbd:1,qdr:w', country: 'BR' };
+  if (pesquisa.dominios?.length) corpo.includeDomains = pesquisa.dominios;
   const response = await fetch(searchUrl, {
     method: 'POST', headers,
-    body: JSON.stringify({ query, limit: 5, sources: ['news', 'web'], tbs: 'sbd:1,qdr:w', country: 'BR' }),
+    body: JSON.stringify(corpo),
   });
   const search = await response.json().catch(() => ({}));
   if (!response.ok || !search.success) throw new Error(`Busca falhou (${response.status}): ${search.error || 'erro desconhecido'}`);
