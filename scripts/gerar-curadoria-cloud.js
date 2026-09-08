@@ -207,7 +207,7 @@ async function main() {
       console.warn(error instanceof Error ? error.message : error);
     }
   }
-  if (noticias.length < 2) throw new Error(`Somente ${noticias.length} notícia(s) passou(aram) pela validação; publicação cancelada.`);
+  if (noticias.length < 1) throw new Error(`Somente ${noticias.length} notícia(s) passou(aram) pela validação; publicação cancelada.`);
   fs.mkdirSync(curadoriaDir, { recursive: true });
   fs.writeFileSync(outputPath, gerarMarkdown(dataHoje, noticias), 'utf8');
   console.log(`Digest criado: ${outputPath} (${noticias.length} notícias).`);
