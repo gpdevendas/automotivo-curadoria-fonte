@@ -61,7 +61,9 @@ function dataISO(value, dataHoje) {
   const dias = /week|semana/.test(unidade) ? quantidade * 7 : (/day|dia/.test(unidade) ? quantidade : 0);
   const date = new Date(`${dataHoje}T12:00:00-03:00`);
   date.setUTCDate(date.getUTCDate() - dias);
-  return date.toISOString().slice(0, 10);
+  if (dias > 0 || relativo) return date.toISOString().slice(0, 10);
+  const timestamp = Date.parse(texto);
+  return Number.isNaN(timestamp) ? '' : new Date(timestamp).toISOString().slice(0, 10);
 }
 
 function dataNaJanela(dataPublicacao, dataHoje) {
@@ -102,8 +104,12 @@ async function pesquisar(apiKey, pesquisa, dataHoje) {
       resultado.date
       || resultado.publishedDate
       || resultado.published_date
+      || resultado.published
+      || resultado.published_at
       || resultado.metadata?.publishedTime
-      || resultado.metadata?.publishedDate,
+      || resultado.metadata?.publishedDate
+      || resultado.metadata?.datePublished
+      || resultado.metadata?.date,
       dataHoje,
     );
     if (!dataNaJanela(publicada, dataHoje)) continue;
